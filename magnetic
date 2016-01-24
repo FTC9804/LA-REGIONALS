@@ -1,0 +1,21 @@
+package com.qualcomm.ftcrobotcontroller.opmodes;
+
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.util.ElapsedTime;
+/**
+ * Created by bridget on 1/23/16.
+ */
+public class MagneticSensor extends OpMode {
+    DigitalChannel digital;
+
+    @Override
+    public void init(){
+        digital = hardwareMap.digitalChannel.get("touch1");
+    }
+    @Override
+    public void loop(){
+        boolean digVal = digital.getState();
+        telemetry.addData("Digital1:", String.format("%id" , (digVal ? 1:0))) ;
+    }
+}
