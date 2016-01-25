@@ -1,1 +1,151 @@
 //This should work.  Phones were broken--UGH.
+package com.qualcomm.ftcrobotcontroller.opmodes;
+
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.robotcore.hardware.GyroSensor;
+
+
+public class MagneticSensor extends OpMode {
+    DigitalChannel digital;
+
+    DcMotor driveRight;
+    DcMotor driveLeft;
+    DcMotor arms;
+    DcMotor spin;
+    DcMotor leftWinch;
+    DcMotor rightWinch;
+    Servo grab1;
+    Servo grab2;
+    Servo score;
+    Servo drop;
+    Servo hooks;
+    double DOWN_POSITION = 0.6;
+    double UP_POSITION = 0.4;
+    double speed = 1;
+    double targetHeadingA = 0.0;
+    double gain = 0.1;
+    double steeringError;
+    double leftPower;
+    double rightPower;
+    int currentHeading = 0;
+    double steeringAdjustment = 0.0;
+
+@Override
+public void init(){
+    digital = hardwareMap.digitalChannel.get("touch1");
+    driveRight = hardwareMap.dcMotor.get("ml");
+    driveLeft = hardwareMap.dcMotor.get("mr");
+    arms = hardwareMap.dcMotor.get("arms");
+    spin  = hardwareMap.dcMotor.get("spin");
+    rightWinch  = hardwareMap.dcMotor.get("rw");
+    leftWinch  = hardwareMap.dcMotor.get("lw");
+    grab1 = hardwareMap.servo.get("g1");
+    grab2 = hardwareMap.servo.get("g2");
+    score = hardwareMap.servo.get("score");
+    drop = hardwareMap.servo.get("drop");
+    hooks = hardwareMap.servo.get("hooks");
+    int testOne= 0;
+}
+
+    @Override
+    public void runOpMode() throws InterruptedException {
+
+        right = hardwareMap.dcMotor.get("m1");
+        left = hardwareMap.dcMotor.get("m2");
+
+        right.setDirection(DcMotor.Direction.REVERSE);
+        GyroSensor sensorGyro;
+
+
+        // write some device information (connection info, name and type)
+        // to the log file.
+        hardwareMap.logDevices();
+
+        // get a reference to our GyroSensor object.
+        sensorGyro = hardwareMap.gyroSensor.get("gyro");
+
+        // calibrate the gyro.
+        sensorGyro.calibrate();
+
+        // wait for the start button to be pressed.
+        waitForStart();
+
+        // make sure the gyro is calibrated.
+        while (sensorGyro.isCalibrating()) {
+            Thread.sleep(50);
+        }
+
+    public class StraighAuto extends LinearOpMode {
+
+
+                if (testOne == 0) {
+                    score.setPosition(UP_POSITION);
+                    drop.setPosition(UP_POSITION);
+                    hooks.setPosition(UP_POSITION);
+                    testOne++;
+                }
+
+
+
+        /*
+        DRIVE STRAIGHT OUT FROM WALL AT 45 degrees
+         */
+                this.resetStartTime();
+
+
+                while (this.getRuntime() < 8.0) {
+
+                    // get the heading info.
+                    // the Modern Robotics' gyro sensor keeps
+                    // track of the current heading for the Z axis only.
+                    currentHeading = sensorGyro.getHeading();
+                    if (currentHeading > 180) {
+                        currentHeading -= 360;
+                    }
+
+                    steeringError = currentHeading - targetHeadingA;
+
+                    steeringAdjustment = steeringError * gain;
+
+                    rightPower = (speed + steeringAdjustment);
+                    leftPower = (speed - steeringAdjustment);
+
+                    if (rightPower < 0.0) {
+                        rightPower = 0.0;
+                    }
+                    if (leftPower < 0.0) {
+                        leftPower = 0.0;
+                    }
+                    if (rightPower > 1.0) {
+                        rightPower = 1.0;
+                    }
+                    if (leftPower > 1.0) {
+                        leftPower = 1.0;
+                    }
+
+                    right.setPower(-rightPower);
+                    left.setPower(-leftPower);
+                    telemetry.addData("1. h", String.format("%03d", currentHeading));
+
+                    Thread.sleep(50);
+
+                }
+
+                if (testOne == 1) {
+                    score.setPosition(DOWN_POSITION);
+                    drop.setPosition(DOWN_POSITION);
+                    hooks.setPosition(DOWN_POSITION);
+                    testOne++;
+                }
+
+                right.setPower(0);
+                left.setPower(0);
+
+
+            }
+        }
+
