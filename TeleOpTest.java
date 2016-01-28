@@ -1,8 +1,10 @@
 package com.qualcomm.ftcrobotcontroller.opmodes;
 
+//import OpModes
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.DigitalChannelController;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
@@ -11,102 +13,204 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 
 public class TeleOpTest extends OpMode {
-    DigitalChannel digital;
 
-    DcMotor driveLeft1;
-    DcMotor driveLeft2;
-    DcMotor driveRight1;
-    DcMotor driveRight2;
+    //defining the motors, servos, and variables in this program
+
+    //magnetics sensor
+    DigitalChannel sensorExtend;
+    DigitalChannel sensorRetract;
+    DigitalChannel extendLED;
+    DigitalChannel retractLED;
+    //drive motors
+    DcMotor driveLeftBack;
+    DcMotor driveLeftFront;
+    DcMotor driveRightBack;
+    DcMotor driveRightFront;
+    //winch motors
     DcMotor leftWinch;
     DcMotor rightWinch;
-    double DOWN_POSITION = 0.0;
-    double UP_POSITION = 1.0;
+    //motors for arms and spinner
     DcMotor arms;
     DcMotor spin;
-    Servo grab1;
-    Servo grab2;
+    //servos to lock in place on ramp
+    Servo grabLeft;
+    Servo grabRight;
+    //servo to release debris
     Servo score;
+    //hits climbers with drop thing
     Servo drop;
+    //sets hooks up for final climb
     Servo hooks;
+    //variables for driving
+    float trailingValueRight;
+    double leadingValueRight;
+    float trailingValueLeft;
+    double leadingValueLeft;
+    int telemetryVariable;
+    double grabLeftUp = 0;
+    double grabLeftDown = 0.5;
+    double grabRightUp = 0.5;
+    double grabRightDown = 0;
+    double scoreUp = 0;
+    double scoreDown = 1.0;
+    double dropUp = 0;
+    double dropDown = 1.0;
+    double hooksUp = 0;
+    double hooksDown = 1.0;
+
 
     @Override
     public void init(){
-        digital = hardwareMap.digitalChannel.get("touch1");
-        driveLeft1 = hardwareMap.dcMotor.get("d1");
-        driveLeft2 = hardwareMap.dcMotor.get("d2");
-        driveRight1 = hardwareMap.dcMotor.get("d3");
-        driveRight2 = hardwareMap.dcMotor.get("d4");
-        driveLeft1.setDirection(DcMotor.Direction.REVERSE);
-        driveLeft2.setDirection(DcMotor.Direction.REVERSE);
-        driveRight1.setDirection(DcMotor.Direction.FORWARD);
-        driveRight2.setDirection(DcMotor.Direction.FORWARD);
-
+        //gives name of magnetic sensor
+        sensorExtend = hardwareMap.digitalChannel.get("extend");
+        sensorRetract  = hardwareMap.digitalChannel.get("retract");
+        extendLED = hardwareMap.digitalChannel.get("extendLED");
+        retractLED = hardwareMap.digitalChannel.get("retractLED");
+        extendLED.setMode(DigitalChannelController.Mode.OUTPUT);
+        retractLED.setMode(DigitalChannelController.Mode.OUTPUT);
+        retractLED.setState(false);
+        extendLED.setState(false);
+        //gives name of drive motors
+        driveLeftBack = hardwareMap.dcMotor.get("dlback");
+        driveLeftFront = hardwareMap.dcMotor.get("dlfront");
+        driveRightBack = hardwareMap.dcMotor.get("drback");
+        driveRightFront = hardwareMap.dcMotor.get("drfront");
+        //gives the motor values forward and reverse directions to follow
+        driveLeftBack.setDirection(DcMotor.Direction.REVERSE);
+        driveLeftFront.setDirection(DcMotor.Direction.REVERSE);
+        driveRightFront.setDirection(DcMotor.Direction.FORWARD);
+        driveRightBack.setDirection(DcMotor.Direction.FORWARD);
+        //gives motor names for the other motors
         arms = hardwareMap.dcMotor.get("arms");
         spin  = hardwareMap.dcMotor.get("spin");
         rightWinch  = hardwareMap.dcMotor.get("rw");
         leftWinch  = hardwareMap.dcMotor.get("lw");
-        grab1 = hardwareMap.servo.get("g1");
-        grab2 = hardwareMap.servo.get("g2");
+        //give the servo names for the servos
+        grabLeft = hardwareMap.servo.get("gl");
+        grabRight = hardwareMap.servo.get("gr");
         score = hardwareMap.servo.get("score");
         drop = hardwareMap.servo.get("drop");
         hooks = hardwareMap.servo.get("hooks");
+        //resets start time for match4
+        this.resetStartTime();
     }
     @Override
     public void loop() {
-        boolean digVal = digital.getState();
-        telemetry.addData("Digital1", String.format("%1d", (digVal ? 1 : 0)));
-        driveLeft1.setPower(-gamepad1.left_stick_y);
-        driveLeft2.setPower(-gamepad1.left_stick_y);
-        driveRight1.setPower(gamepad1.right_stick_y);
-        driveRight2.setPower(gamepad1.right_stick_y);
-
-        rightWinch.setPower(gamepad2.left_stick_y);
-        leftWinch.setPower(gamepad2.right_stick_y);
-        if (gamepad1.x) {
-            arms.setPower(1);
-        }else {
-            arms.setPower(0);
+        //creates boolean value for magnetic sensor
+        boolean extendArms = sensorExtend.getState();
+        boolean retractArms = sensorRetract.getState();
+        //telemetry for magnetic sensor
+        telemetry.addData("Extended Sensor", String.format("%1d", (extendArms ? 1 : 0))); //maybe add the word key after the string
+        telemetry.addData("Retracted Sensor", String.format("%1d", (retractArms ? 1:0)));
+        //takes input from joysticks for motor values; sets the back wheel at a greater power to ensure the tension is perfect
+        trailingValueLeft = gamepad1.left_stick_y;
+        leadingValueLeft = .95*trailingValueLeft;
+        trailingValueRight = gamepad1.right_stick_y;
+        leadingValueRight = .95*trailingValueRight;
+        if (leadingValueLeft > 0) {
+            driveLeftBack.setPower(trailingValueLeft);
+            driveLeftFront.setPower(leadingValueLeft);
         }
-        if (gamepad1.b) {
+        else if (leadingValueLeft < 0) {
+            driveLeftBack.setPower(leadingValueLeft);
+            driveLeftFront.setPower(trailingValueLeft);
+        }
+        if (leadingValueRight > 0) {
+            driveRightBack.setPower(trailingValueRight);
+            driveRightFront.setPower(leadingValueRight);
+        }
+        else if (leadingValueRight < 0) {
+            driveRightBack.setPower(leadingValueRight);
+            driveRightFront.setPower(trailingValueRight);
+        }
+        //only allows winch to be run in the last 30 seconds of the match
+        if (this.getRuntime() > 90) {
+            rightWinch.setPower(gamepad2.left_stick_y);
+            leftWinch.setPower(gamepad2.right_stick_y);
+        }
+        else {
+            rightWinch.setPower(0);
+            leftWinch.setPower(0);
+        }
+        //only allows arms to go while the boolean for the magnetic sensor is false
+        if (gamepad2.dpad_up && !extendArms) {
+            arms.setPower(1);
+            retractLED.setState(false);
+            extendLED.setState(false);
+            telemetry.clearData();
+
+        }
+        else if (extendArms){
+            telemetry.addData("EXTENDED ALL THE WAY", telemetryVariable);
+            arms.setPower(0);
+            retractLED.setState(false);
+            extendLED.setState(true);
+        }
+        else if (gamepad2.dpad_down && !retractArms) {
+            arms.setPower(-1);
+            retractLED.setState(false);
+            extendLED.setState(false);
+            telemetry.clearData();
+        }
+        else if (retractArms){
+            telemetry.addData("RETRACTED ALL THE WAY", telemetryVariable);
+            arms.setPower(0);
+            retractLED.setState(true);
+            extendLED.setState(false);
+        }
+        else {
+            arms.setPower(0);
+            retractLED.setState(false);
+            extendLED.setState(false);
+        }
+        //takes input from buttons for spin motors
+        if (gamepad2.a) {
             spin.setPower(1);
-        } else {
+        }
+        else if (gamepad2.y) {
+            spin.setPower(-1);
+        }
+        else {
             spin.setPower(0);
         }
-        if (gamepad2.x){
-            grab1.setPosition(UP_POSITION);
-        } else if (gamepad2.y){
-            grab1.setPosition(DOWN_POSITION);
+        //takes input from bumpers and triggers for the locking grab motors set individually
+        if (gamepad1.right_bumper){
+            grabRight.setPosition(grabRightUp);
+        }
+        else if (gamepad1.right_trigger > 10){
+            grabRight.setPosition(grabRightDown);
+        }
+        else {
+            grabRight.setPosition(0);
+        }
+        if (gamepad1.left_bumper){
+            grabLeft.setPosition(grabLeftUp);
+        } else if (gamepad1.left_trigger > 10){
+            grabLeft.setPosition(grabLeftDown);
         } else {
-            grab1.setPosition(0);
+            grabLeft.setPosition(0);
         }
-
-        if (gamepad2.a){
-            grab2.setPosition(UP_POSITION);
-        } else if (gamepad2.b){
-            grab2.setPosition(DOWN_POSITION);
-        } else {
-            grab2.setPosition(0);
-        }
+        //sets score to a value because a button is pressed
         if (gamepad1.a){
-            score.setPosition(UP_POSITION);
+            score.setPosition(scoreUp);
         }
         else if (gamepad1.y){
-            score.setPosition(DOWN_POSITION);
+            score.setPosition(scoreDown);
+        }
+        //sets drop to a value because a button is pressed
+        if (gamepad2.b){
+            drop.setPosition(dropUp);
+        }
+        else if (gamepad2.x){
+            drop.setPosition(dropDown);
 
         }
-        if (gamepad1.a){
-            drop.setPosition(UP_POSITION);
+        //takes input from bumpers and triggers for the hook motors set individually
+        if (gamepad2.left_trigger > 10 || gamepad2.right_trigger > 10){
+            hooks.setPosition(hooksUp);
         }
-        else if (gamepad1.y){
-            drop.setPosition(DOWN_POSITION);
-
-        }
-        if (gamepad1.a){
-            hooks.setPosition(UP_POSITION);
-        }
-        else if (gamepad1.y){
-            hooks.setPosition(DOWN_POSITION);
-
+        else if (gamepad2.left_bumper || gamepad2.right_bumper){
+            hooks.setPosition(hooksDown);
         }
     }
 }
