@@ -8,8 +8,8 @@ import com.qualcomm.robotcore.hardware.DigitalChannelController;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-// Made by the programmers of FTC Team 9804 Bomb Squad
-
+// Made by the programmers of FTC Team 9804 Bomb Squad on January 27, 2016
+//V02 6 pm 1-28-16
 
 
 public class TeleOpTest extends OpMode {
