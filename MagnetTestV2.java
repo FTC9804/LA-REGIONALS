@@ -12,6 +12,8 @@ public class MagnetTestV2 extends OpMode {
     DigitalChannel magLED1;
     DigitalChannel magnet2;
     DigitalChannel magLED2;
+    boolean digVal1;                    //true if no magnet
+    boolean digVal2;                    //false if magnet nearby
 
     @Override
     public void init(){
@@ -21,26 +23,26 @@ public class MagnetTestV2 extends OpMode {
         magLED2 = hardwareMap.digitalChannel.get("LED2");
         magLED1.setMode(DigitalChannelController.Mode.OUTPUT);
         magLED2.setMode(DigitalChannelController.Mode.OUTPUT);
-        magLED1.setState(true);
-        magLED2.setState(true);
+        magLED1.setState(false);        //initialize LED to off
+        magLED2.setState(false);
     }
     @Override
     public void loop(){
-        boolean digVal1 = magnet1.getState();
-        boolean digVal2 = magnet2.getState();
-        telemetry.addData("Digital1:", String.format("%1d" , (digVal1 ? 1:0)));
-        telemetry.addData("Digital2:", String.format("%1d", (digVal2 ? 1:0)));
-        if (digVal1){
-            magLED1.setState(false);
+        digVal1 = magnet1.getState();
+        digVal2 = magnet2.getState();
+        telemetry.addData("Mag sensor 1:", String.format("%1d" , (digVal1 ? 1:0)));
+        telemetry.addData("Mag sensor 2:", String.format("%1d", (digVal2 ? 1:0)));
+        if (!digVal1){                      //if switch is closed (magnet nearby),
+            magLED1.setState(true);         //+5 volts to LED
         }
-        else {
-            magLED1.setState(true);
+        else {                              //if switch is open (no magnet),
+            magLED1.setState(false);        //0 volts to LED
         }
-        if (digVal2){
-            magLED2.setState(false);
-        }
-        else {
+        if (!digVal2){
             magLED2.setState(true);
+        }
+        else {
+            magLED2.setState(false);
         }
     }
 }
