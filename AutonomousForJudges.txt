@@ -1,0 +1,373 @@
+package com.qualcomm.ftcrobotcontroller.opmodes;
+
+import com.qualcomm.hardware.ModernRoboticsI2cGyro;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+
+
+// Made by the programmers of FTC Team 9804 Bomb Squad on January 29, 2016 4pm
+//renamed to Autonomous_9804_v2 on January 29, 2016 at 8pm
+//DRIVE STRAIGHT 12 INCHES, CURVE LEFT 70 DEGREES, SPIN LEFT 65 DEGREES, DRIVE FORWARD 48 INCHES
+// Steve C.
+public class Autonomous_9804_v2 extends LinearOpMode {
+
+    //drive motors
+    DcMotor driveLeftBack;
+    DcMotor driveLeftFront;
+    DcMotor driveRightBack;
+    DcMotor driveRightFront;
+
+
+    double midPower;             //average driving speed is a predetermined number
+    int targetHeading;          //the desired heading
+    double driveGain = 0.05;    //depends on task and which robot is running
+    double leftPower;           //variables for motor powers
+    double rightPower;
+    int currentHeading = 0;     //This is a signed heading, not a basic heading
+    int headingError;           //takes the error between desired heading and current heading
+    double driveSteering;       //heading error * gain
+    double currentDistance;     //current distance travelled, which is then displayed on DS
+    int currentEncCountLeft;    //current encoder counts displayed in telemetry on DS
+    int currentEncCountRight;
+
+
+    double targetDistance;      //distance in inches given to us
+    double encoderCountsPerRotation = 1440; //the encoder counts per rotation
+    double diameter = 2.5;      //2.5 inches for competition bot (V2)
+    double circumference = diameter * 3.14159;  //math for circumference
+    double rotations;           //rotations needed to travel the target distance
+    double targetEncoderCounts; //encoder counts that are needed to complete the distance
+    double EncErrorLeft;        //because we are using our encoders as sensors, we have this error
+    int telemetryVariable;      //variable which allows us to display DS messages
+    int initialEncCountLeft;    //initial encoder counts before the match which we need because
+    int initialEncCountRight;   //they operate as sensors
+
+    @Override
+    public void runOpMode() throws InterruptedException {
+        //gives name of drive motors
+        driveLeftBack = hardwareMap.dcMotor.get("m5");      // 1 on red controller SN VUTK
+        driveLeftFront = hardwareMap.dcMotor.get("m6");     // 2 on red
+        driveRightBack = hardwareMap.dcMotor.get("m1");     // 1 on purple controller SN UVQF
+        driveRightFront = hardwareMap.dcMotor.get("m2");    // 2 on purple
+
+
+        //get a signed heading rather than a basic heading
+        ModernRoboticsI2cGyro gyro = (ModernRoboticsI2cGyro) hardwareMap.gyroSensor.get("gyro");
+
+        hardwareMap.logDevices();
+
+        //calibrate gyro before match to get the correct heading
+        gyro.calibrate();
+
+        //waits for start of autonomous
+        waitForStart();
+
+        // make sure the gyro is calibrated.
+        while (gyro.isCalibrating()) {
+            Thread.sleep(50);
+        }
+
+
+        //reverses the necessary motors to avoid multiple negative numbers, allows us to deal with
+        //all positive values when driving straight
+        driveLeftBack.setDirection(DcMotor.Direction.FORWARD);
+        driveLeftFront.setDirection(DcMotor.Direction.FORWARD);
+        driveRightBack.setDirection(DcMotor.Direction.REVERSE);
+        driveRightFront.setDirection(DcMotor.Direction.REVERSE);
+
+
+        //DRIVE FORWARD 12 INCHES
+
+        midPower = 0.4;                 //average driving speed is 40% of full power
+        targetHeading = 0;              //drive straight ahead
+
+        targetDistance = 12.0;          //distance in inches that we are going
+        rotations = targetDistance / circumference;     //math to find the necessary rotations
+        //math to find encoder counts we need to go to move straight
+        targetEncoderCounts = encoderCountsPerRotation * rotations;
+
+        this.resetStartTime();
+
+        //takes the absolute value of the encoders to calculate with all positive numbers
+        initialEncCountLeft = Math.abs(driveLeftBack.getCurrentPosition());
+        initialEncCountRight = Math.abs(driveRightBack.getCurrentPosition());
+
+
+        do {
+
+            //takes the original values, subtracts initial values to get our current encoder value
+            currentEncCountLeft = Math.abs(driveLeftBack.getCurrentPosition())
+                    - initialEncCountLeft;
+            currentEncCountRight = Math.abs(driveRightBack.getCurrentPosition())
+                    - initialEncCountRight;
+
+            //how many encoder counts we have left to go before reaching the target distance
+            EncErrorLeft = targetEncoderCounts - currentEncCountLeft;
+
+            //displays the information onto the phones
+            telemetry.addData("Left Encoder:", currentEncCountLeft);
+            telemetry.addData("Right Encoder:", currentEncCountRight);
+
+            //calculates our current driving distance on the field and displays telemetry
+            currentDistance = (currentEncCountLeft * circumference) / encoderCountsPerRotation;
+            telemetry.addData("Calculated current distance: ", currentDistance);
+
+
+            // get the Z-axis heading info.
+            //this is a signed heading not a basic heading
+            currentHeading = gyro.getIntegratedZValue();
+
+            //a decreasing positive error for positive target
+            headingError = targetHeading - currentHeading;
+
+            //uses the gain predetermined by testing for the steering
+            driveSteering = headingError * driveGain;
+
+            //negative adjustment
+            leftPower = midPower - driveSteering;
+            if (leftPower > 1.0) {                            //cuts ourselves off at 1,
+                leftPower = 1.0;                              // the maximum motor power
+            }
+            if (leftPower < 0.0) {                            //don't drive backwards
+                leftPower = 0.0;
+            }
+            //positive adjustment
+            rightPower = midPower + driveSteering;
+            if (rightPower > 1.0) {
+                rightPower = 1.0;
+            }
+            if (rightPower < 0.0) {
+                rightPower = 0.0;
+            }
+            driveLeftBack.setPower(leftPower);              //runs the drive motors
+            driveLeftFront.setPower(.95 * leftPower);       //creates belt tension between
+            driveRightBack.setPower(rightPower);            //the drive pulleys
+            driveRightFront.setPower(.95 * rightPower);
+
+            waitOneFullHardwareCycle();
+
+
+        } while (EncErrorLeft > 0                       //end loop if either condition is false
+                && this.getRuntime() < 5);
+
+        //sets motors to 0
+        driveLeftBack.setPower(0.0);
+        driveLeftFront.setPower(0.0);
+        driveRightBack.setPower(0.0);
+        driveRightFront.setPower(0.0);
+
+        //send telemetry to DS
+        telemetry.addData("drive ONE done", telemetryVariable);
+        resetStartTime();
+        while (this.getRuntime() < 1) {
+            waitOneFullHardwareCycle();
+        }
+
+
+        // CURVE LEFT 70 DEGREES
+
+        driveGain = 0.07;
+
+        midPower = 0.4;                  //mid power is at 40% power
+        targetHeading = 70;              //70 degrees CCW
+
+        telemetry.clearData();          //clear the data from the previous driving
+
+        this.resetStartTime();          //resets time for loop counting
+
+        do {
+
+            // get the Z-axis heading info.
+            // this is a signed heading not a basic heading
+            currentHeading = gyro.getIntegratedZValue();
+
+            headingError = targetHeading - currentHeading;
+
+            driveSteering = headingError * driveGain;
+
+            leftPower = midPower - driveSteering;              //negative adjustment
+            if (leftPower > 1.0) {                            //cuts ourselves off at 1,
+                leftPower = 1.0;                              //the maximum motor power
+            }
+            if (leftPower < 0.1) {                            //treads always moving forward
+                leftPower = 0.1;
+            }
+            rightPower = midPower + driveSteering;
+            if (rightPower > 1.0) {
+                rightPower = 1.0;
+            }
+            if (rightPower < 0.1) {
+                rightPower = 0.1;
+            }
+            driveLeftBack.setPower(leftPower);
+            driveLeftFront.setPower(.95 * leftPower);       //creates belt tension between
+            driveRightBack.setPower(rightPower);            //the drive pulleys
+            driveRightFront.setPower(.95 * rightPower);
+
+            waitOneFullHardwareCycle();
+
+
+        }
+        while (currentHeading < targetHeading         //we are going to 70, so we will loop while <
+                && this.getRuntime() < 30);
+
+        driveLeftBack.setPower(0.0);
+        driveLeftFront.setPower(0.0);
+        driveRightBack.setPower(0.0);
+        driveRightFront.setPower(0.0);
+
+        telemetry.addData("drive TWO done", telemetryVariable);
+        resetStartTime();
+        while (this.getRuntime() < 3) {
+            waitOneFullHardwareCycle();
+        }
+
+
+        // SPIN LEFT 65 DEGREES
+
+        driveGain = 0.05;       //decrease the drive gain for the spin
+
+        midPower = 0;           //mid power is 0 because in the end we want to stay in place
+        targetHeading = 135;              //rotate another 65 degrees CCW
+
+        telemetry.clearData();
+
+        this.resetStartTime();
+
+        do {
+
+            // get the Z-axis heading info.
+            // this is a signed heading not a basic heading
+            currentHeading = gyro.getIntegratedZValue();
+
+            headingError = targetHeading - currentHeading;
+
+            driveSteering = headingError * driveGain;
+
+            leftPower = midPower - driveSteering;             //negative adjustment
+            if (leftPower > 1.0) {                            //cuts ourselves off at 1,
+                leftPower = 1.0;                              //the maximum motor power
+            }
+            if (leftPower < -1) {                            //allow backwards rotation
+                leftPower = -1;
+            }
+            rightPower = midPower + driveSteering;          //positive adjustment
+            if (rightPower > 1.0) {
+                rightPower = 1.0;
+            }
+            if (rightPower < -1) {
+                rightPower = -1;
+            }
+            driveLeftBack.setPower(leftPower);
+            driveLeftFront.setPower(.95 * leftPower);       //creates belt tension between
+            driveRightBack.setPower(rightPower);            //the drive pulleys
+            driveRightFront.setPower(.95 * rightPower);
+
+            waitOneFullHardwareCycle();
+
+
+        }
+        while (currentHeading < targetHeading         //we are going to +135 from +90,
+                && this.getRuntime() < 10);           //so we will loop while <
+
+        driveLeftBack.setPower(0.0);
+        driveLeftFront.setPower(0.0);
+        driveRightBack.setPower(0.0);
+        driveRightFront.setPower(0.0);
+
+        telemetry.addData("drive THREE done", telemetryVariable);
+        resetStartTime();
+        while (this.getRuntime() < 1) {
+            waitOneFullHardwareCycle();
+        }
+
+
+        //DRIVE FORWARD 48 INCHES
+
+        telemetry.clearData();
+
+        driveGain = 0.05;
+
+        midPower = 0.6;                   //increase mid power to provide speed to go up the ramp
+        targetHeading = 135;              //drive straight ahead, while maintaining gyro heading
+
+        targetDistance = 48.0;
+        rotations = targetDistance / circumference;
+        targetEncoderCounts = encoderCountsPerRotation * rotations;
+
+        this.resetStartTime();
+
+        //absolutely values of the encoder to calculate with only positive numbers
+        initialEncCountLeft = Math.abs(driveLeftBack.getCurrentPosition());
+        initialEncCountRight = Math.abs(driveRightBack.getCurrentPosition());
+
+
+        do {
+
+            //calculate current encoder values
+            currentEncCountLeft = Math.abs(driveLeftBack.getCurrentPosition())
+                    - initialEncCountLeft;
+            currentEncCountRight = Math.abs(driveRightBack.getCurrentPosition())
+                    - initialEncCountRight;
+
+            //get our area and the encoder counts we need to drive
+            EncErrorLeft = targetEncoderCounts - currentEncCountLeft;
+
+            //telemetry for the encoders
+            telemetry.addData("Left Encoder:", currentEncCountLeft);
+            telemetry.addData("Right Encoder:", currentEncCountRight);
+
+
+            //calculates the current distance we have travelled
+            currentDistance = (currentEncCountLeft * circumference) / encoderCountsPerRotation;
+            telemetry.addData("Calculated current distance: ", currentDistance);
+
+
+            // get the Z-axis heading info.
+            //this is a signed heading not a basic heading
+            currentHeading = gyro.getIntegratedZValue();
+
+            headingError = targetHeading - currentHeading;
+
+            driveSteering = headingError * driveGain;
+
+            leftPower = midPower - driveSteering;             //negative adjustment
+            if (leftPower > 1.0) {                            //cuts ourselves off at 1,
+                leftPower = 1.0;                              //the maximum motor power
+            }
+            if (leftPower < 0.0) {                            //don't drive backwards
+                leftPower = 0.0;
+            }
+            rightPower = midPower + driveSteering;            //positive adjustment
+            if (rightPower > 1.0) {
+                rightPower = 1.0;
+            }
+            if (rightPower < 0.0) {
+                rightPower = 0.0;
+            }
+
+            driveLeftBack.setPower(leftPower);
+            driveLeftFront.setPower(.95 * leftPower);       //creates belt tension between
+            driveRightBack.setPower(rightPower);            //the drive pulleys
+            driveRightFront.setPower(.95 * rightPower);
+
+            waitOneFullHardwareCycle();
+
+
+        } while (EncErrorLeft > 0
+                && this.getRuntime() < 20);
+
+        //stop all motors
+        driveLeftBack.setPower(0.0);
+        driveLeftFront.setPower(0.0);
+        driveRightBack.setPower(0.0);
+        driveRightFront.setPower(0.0);
+        telemetry.clearData();
+        telemetry.addData("COMPLETED PROGRAM", telemetryVariable);
+        resetStartTime();
+        while (this.getRuntime() < 5) {
+            waitOneFullHardwareCycle();
+        }
+
+    }
+}
