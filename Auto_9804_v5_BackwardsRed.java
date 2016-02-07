@@ -127,7 +127,7 @@ public class Auto_9804_v5_BackwardsRed extends LinearOpMode {
             if (rightPower < 0.0) {
                 rightPower = 0.0;
             }
-            //when drving backwards, reverse leading and trailing
+            //when driving backwards, reverse leading and trailing
             //left front is now trailing, left back is now leading
             //trailing gets full power
             driveLeftFront.setPower(-leftPower);
@@ -278,7 +278,7 @@ public class Auto_9804_v5_BackwardsRed extends LinearOpMode {
             if (rightPower < 0.0) {
                 rightPower = 0.0;
             }
-            //when drving backwards, reverse leading and trailing
+            //when driving backwards, reverse leading and trailing
             //left front is now trailing, left back is now leading
             //trailing gets full power
             driveLeftFront.setPower(-leftPower);
