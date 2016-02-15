@@ -84,6 +84,25 @@ public class TeleOp_9804_v4_variableGain extends OpMode {
 
     float joystick1ValueRight;
     float joystick1ValueLeft;
+    
+    //these are declarations for proportional winch to arm power
+	double initialWinchPosition;
+	double currentWinchEncoderCounts;
+	double initialArmPosition;
+	double currentArmEncoderCounts;
+	double armsSpeedGain = 1.744;	//need better estimate
+	double currentWinchSpeed;
+	double currentArmsSpeed;
+	double targetArmsSpeed;
+	double armsSpeedError;
+	double armsMotorPower;
+	double winchCircumference;
+	double winchDiameter = 2.5; // inches
+	double armsPinionDiameter = 0.75; //inches
+	double pinionCircumference;
+	double winchToArmRatio;
+	double armsInchesPerRotation;
+	double winchInchesPerRotation;
 
     @Override
     public void init() {
@@ -126,6 +145,9 @@ public class TeleOp_9804_v4_variableGain extends OpMode {
         grabRight = hardwareMap.servo.get("s2");            // xx on servo controller
         score = hardwareMap.servo.get("s3");
         drop = hardwareMap.servo.get("s4");
+        
+        //calculate the winch to arm ratio
+		getWinchToArmRatio(winchDiameter, armsPinionDiameter);
 
         //sets initial positions for the servos to activate to
         grabLeft.setPosition(grabLeftUp);
@@ -286,5 +308,51 @@ public class TeleOp_9804_v4_variableGain extends OpMode {
         }
 
 
-    }//finish loop
+    //Proportional Arm and Winch extension
+
+		leftWinch.setPower(1.0);
+		this.resetStartTime();
+
+		initialWinchPosition = Math.abs(leftWinch.getCurrentPosition());
+		initialArmPosition = Math.abs(arms.getCurrentPosition());
+
+		leftWinch.setPower(1.0);
+
+
+		while (this.getRuntime() < 50) {} //assuming 50 is in ms
+
+		currentWinchEncoderCounts = Math.abs(leftWinch.getCurrentPosition()) - initialWinchPosition;
+		currentArmEncoderCounts = Math.abs(arms.getCurrentPosition()) - initialArmPosition;
+
+		//calculate the speeds
+		currentWinchSpeed = currentWinchEncoderCounts/this.time; //units are clicks / ms
+		currentArmsSpeed = currentArmEncoderCounts/this.time; 	//units are clicks / ms
+
+		targetArmsSpeed = currentWinchSpeed * winchToArmRatio;
+
+		armsSpeedError =  currentArmsSpeed - targetArmsSpeed;
+
+		armsMotorPower = armsSpeedError * armsSpeedGain;
+
+		arms.setPower(armsMotorPower);
+
+
+	}//finish loop
+
+	public double getWinchToArmRatio(double winchDia, double armsDia){
+
+		winchCircumference = winchDia * 3.14159;
+
+		winchInchesPerRotation = (winchCircumference )/4; //Gear ratio is 4
+
+		pinionCircumference = armsDia * 3.14159;
+
+		armsInchesPerRotation = pinionCircumference; //  gear ratio is one
+
+		winchToArmRatio = winchInchesPerRotation/armsInchesPerRotation;
+
+		telemetry.addData("1", "winch to arm ratio:  " + String.format("%.2f", winchToArmRatio));
+
+		return winchToArmRatio;
+	}
 }//finish program
